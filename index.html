@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Alexander UG Chat Room</title>
+<style>
+  html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; }
+  #chatContainer { display: none; flex-direction: column; height: 100%; }
+  #chatHeader { background: #007bff; color: white; padding: 10px; text-align: center; font-size: 1.2em; font-weight: bold; }
+  #messages { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; }
+  #inputArea { display: flex; border-top: 1px solid #ccc; }
+  #messageInput { flex: 1; padding: 10px; border: none; }
+  button { padding: 10px 15px; border: none; background: #007bff; color: white; cursor: pointer; }
+  .bubble { padding: 8px 12px; border-radius: 15px; margin: 5px; max-width: 70%; word-wrap: break-word; }
+  .self { background: #007bff; color: white; align-self: flex-start; text-align: left; }
+  .other { background: #cccccc; color: black; align-self: flex-end; text-align: right; }
+
+  /* Sign In Overlay */
+  #signInOverlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 9999;
+  }
+  #signInOverlay input { padding: 10px; margin: 10px; width: 200px; }
+  #signInOverlay button { padding: 10px 15px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<!-- Sign In Overlay -->
+<div id="signInOverlay">
+  <h2>Enter Username</h2>
+  <input id="signInUsername" placeholder="Username" />
+  <button onclick="signIn()">Sign In</button>
+</div>
+
+<!-- Chat Container -->
+<div id="chatContainer" style="display: flex; flex-direction: column; height: 100%;">
+  <div id="chatHeader">Alexander UG Chat Room</div>
+  <div id="messages"></div>
+  <div id="inputArea">
+    <input id="messageInput" placeholder="Type a message..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDt1gzbJA_QOOUrQ3oWgh8UPqinC_y16D8",
+    authDomain: "server-a352c.firebaseapp.com",
+    databaseURL: "https://server-a352c-default-rtdb.firebaseio.com",
+    projectId: "server-a352c",
+    storageBucket: "server-a352c.appspot.com",
+    messagingSenderId: "522056843528",
+    appId: "1:522056843528:web:21c1221d8a63c7cc476cbd"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  const messagesEl = document.getElementById('messages');
+  const messageInput = document.getElementById('messageInput');
+
+  let username = localStorage.getItem('chatUsername') || '';
+  let savedMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
+
+  function addMessageToDOM(data) {
+    const div = document.createElement('div');
+    div.textContent = `${data.user}: ${data.msg}`;
+    div.className = data.user === username ? 'bubble self' : 'bubble other';
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function renderSavedMessages() {
+    messagesEl.innerHTML = '';
+    savedMessages.forEach(data => addMessageToDOM(data));
+  }
+
+  // Firebase listener for messages
+  db.ref('messages').on('child_added', snapshot => {
+    const data = snapshot.val();
+    const exists = savedMessages.some(m => m.timestamp === data.timestamp && m.user === data.user && m.msg === data.msg);
+    if (!exists) {
+      savedMessages.push(data);
+      localStorage.setItem('chatMessages', JSON.stringify(savedMessages));
+      addMessageToDOM(data);
+    }
+  });
+
+  // Sign In
+  function signIn() {
+    const input = document.getElementById('signInUsername');
+    const name = input.value.trim();
+    if (!name) { alert("Enter a username"); return; }
+
+    username = name;
+    localStorage.setItem('chatUsername', username);
+
+    document.getElementById('signInOverlay').style.display = 'none';
+    document.getElementById('chatContainer').style.display = 'flex';
+    renderSavedMessages();
+  }
+
+  // Auto sign-in if username exists
+  if (username) {
+    document.getElementById('signInOverlay').style.display = 'none';
+    document.getElementById('chatContainer').style.display = 'flex';
+    renderSavedMessages();
+  }
+
+  function sendMessage() {
+    const text = messageInput.value.trim();
+    if (!text) return;
+
+    const payload = { user: username, msg: text, timestamp: Date.now() };
+    db.ref('messages').push(payload);
+
+    messageInput.value = '';
+  }
+
+  messageInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      sendMessage();
+      e.preventDefault();
+    }
+  });
+</script>
+
+</body>
+</html>
